@@ -432,9 +432,24 @@
     let scannerRunning = false;
 
     // ===== BİP SESİ (Web Audio API) =====
+    let audioCtx = null;
+
+    function initAudio() {
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      } catch (e) {
+        console.warn('Ses sistemi başlatılamadı:', e);
+      }
+    }
+
     function playBeep() {
       try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (!audioCtx) initAudio();
         const oscillator = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
 
@@ -442,12 +457,12 @@
         gainNode.connect(audioCtx.destination);
 
         oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(1800, audioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // Daha tatlı bir frekans
+        gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
 
         oscillator.start(audioCtx.currentTime);
-        oscillator.stop(audioCtx.currentTime + 0.15);
+        oscillator.stop(audioCtx.currentTime + 0.1);
       } catch (e) {
         console.warn('Bip sesi çalınamadı:', e);
       }
@@ -518,6 +533,7 @@
     }
 
     async function startScanner() {
+      initAudio(); // Tarayıcı ses kısıtlamasını aşmak için tıklama anında başlat
       hideError();
       hideInfo();
 
