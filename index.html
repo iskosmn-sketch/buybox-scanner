@@ -431,6 +431,28 @@
     let lastScannedCode = '';
     let scannerRunning = false;
 
+    // ===== BİP SESİ (Web Audio API) =====
+    function playBeep() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(1800, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.15);
+      } catch (e) {
+        console.warn('Bip sesi çalınamadı:', e);
+      }
+    }
+
     // ===== MESAJ FONKSİYONLARI =====
     function showInfo(message) {
       const el = document.getElementById('info');
@@ -526,19 +548,56 @@
           selectedCameraId = backCamera.id;
         }
 
-        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode = new Html5Qrcode("reader", {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39
+          ]
+        });
 
         await html5QrCode.start(
           selectedCameraId,
           {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
+            fps: 15,
+            qrbox: { width: 280, height: 120 },
+            aspectRatio: 1.0,
             rememberLastUsedCamera: true,
             supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
           },
           onScanSuccess,
           onScanFailure
         );
+
+        // Kamera zoom ve autofocus ayarla
+        try {
+          const videoTrack = html5QrCode.getRunningTrackSettings && html5QrCode.getRunningTrackCameraCapabilities
+            ? null : null;
+          const videoEl = document.querySelector('#reader video');
+          if (videoEl && videoEl.srcObject) {
+            const track = videoEl.srcObject.getVideoTracks()[0];
+            const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+            const constraints = {};
+
+            if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+              constraints.focusMode = 'continuous';
+            }
+            if (capabilities.zoom) {
+              // Hafif zoom: daha iyi barkod okuma
+              const midZoom = Math.min(capabilities.zoom.max, capabilities.zoom.min + (capabilities.zoom.max - capabilities.zoom.min) * 0.3);
+              constraints.zoom = midZoom;
+            }
+
+            if (Object.keys(constraints).length > 0) {
+              await track.applyConstraints({ advanced: [constraints] });
+            }
+          }
+        } catch (zoomErr) {
+          console.warn('Zoom/focus ayarlanamadı (normal):', zoomErr);
+        }
 
         scannerRunning = true;
         showInfo('Kamera açıldı! Barkodu kameraya göster.');
@@ -558,6 +617,9 @@
 
     async function onScanSuccess(decodedText) {
       if (decodedText === lastScannedCode) return;
+
+      // Bip sesi çal
+      playBeep();
 
       lastScannedCode = decodedText;
       document.getElementById('barcodeInput').value = decodedText;
