@@ -410,6 +410,14 @@
           <div class="result-value" id="rStatus"></div>
         </div>
         <div class="result-row">
+          <div class="result-label" style="color: #10b981;">Geçmiş Satış</div>
+          <div class="result-value" id="rSalesCount" style="font-weight: 700; color: #10b981;"></div>
+        </div>
+        <div class="result-row">
+          <div class="result-label" style="color: #10b981;">Geçmiş Ciro</div>
+          <div class="result-value" id="rSalesRevenue" style="font-weight: 700; color: #10b981;"></div>
+        </div>
+        <div class="result-row">
           <div class="result-label">Öneri</div>
           <div class="result-value" id="rAdvice"></div>
         </div>
@@ -511,6 +519,8 @@
       document.getElementById('rPrice').textContent = data.buyboxPrice ?? '';
       document.getElementById('rSeller').textContent = data.hasMultipleSeller ? 'EVET' : 'HAYIR';
       document.getElementById('rStatus').textContent = data.status || '';
+      document.getElementById('rSalesCount').textContent = (data.satisAdedi !== undefined && data.satisAdedi !== '') ? data.satisAdedi + ' Adet' : 'Yok';
+      document.getElementById('rSalesRevenue').textContent = (data.netCiro !== undefined && data.netCiro !== '') ? data.netCiro + ' ₺' : 'Yok';
       document.getElementById('rAdvice').textContent = data.oneri || '';
       document.getElementById('rDate').textContent = data.tarih || '';
       document.getElementById('rTime').textContent = data.saat || '';
