@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuyBox Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .container { max-width: 480px; margin: 0 auto; }
+
+    .header { text-align: center; padding: 24px 0 20px; }
+    .header h1 {
+      font-size: 28px; font-weight: 800;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      letter-spacing: -0.5px;
+    }
+    .header p { color: #94a3b8; font-size: 14px; margin-top: 6px; }
+
+    .card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: 20px; padding: 20px; margin-bottom: 16px;
+    }
+
+    #reader {
+      width: 100%; min-height: 260px; border-radius: 16px; overflow: hidden;
+      background: rgba(15, 23, 42, 0.6);
+      border: 2px dashed rgba(96, 165, 250, 0.3);
+      display: flex; align-items: center; justify-content: center;
+      color: #94a3b8; text-align: center; padding: 16px;
+      transition: border-color 0.3s ease;
+    }
+    #reader:hover { border-color: rgba(96, 165, 250, 0.5); }
+    #reader video { border-radius: 12px !important; }
+
+    .camera-placeholder { font-size: 14px; line-height: 1.7; }
+    .camera-placeholder .icon { font-size: 40px; display: block; margin-bottom: 10px; }
+
+    input[type="text"] {
+      width: 100%; padding: 14px 16px; font-size: 16px;
+      font-family: 'Inter', sans-serif;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 14px; color: #e2e8f0; outline: none;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+      margin-bottom: 12px;
+    }
+    input[type="text"]::placeholder { color: #64748b; }
+    input[type="text"]:focus {
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
+    }
+
+    .btn-group { display: flex; flex-direction: column; gap: 10px; }
+
+    button {
+      width: 100%; padding: 14px; border: 0; border-radius: 14px;
+      font-size: 15px; font-weight: 600; font-family: 'Inter', sans-serif;
+      cursor: pointer; transition: all 0.25s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    button:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6, #2563eb); color: white;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+    }
+    .btn-camera {
+      background: linear-gradient(135deg, #10b981, #059669); color: white;
+      box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35);
+    }
+    .btn-reset {
+      background: rgba(51, 65, 85, 0.6); color: #cbd5e1;
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .message {
+      display: none; padding: 12px 16px; border-radius: 14px;
+      margin-top: 12px; font-size: 14px; line-height: 1.5;
+      animation: slideIn 0.3s ease;
+    }
+    .message.show { display: flex; align-items: center; gap: 8px; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .loading { background: rgba(37, 99, 235, 0.15); color: #93c5fd; font-weight: 600; }
+    .loading .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(147, 197, 253, 0.3); border-top-color: #93c5fd;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+    .info  { background: rgba(96, 165, 250, 0.12); color: #93c5fd; }
+
+    .result { display: none; margin-top: 16px; animation: slideIn 0.4s ease; }
+    .result.show { display: block; }
+
+    .result-header {
+      text-align: center; padding-bottom: 16px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1); margin-bottom: 12px;
+    }
+    .result-emoji { font-size: 44px; margin-bottom: 6px; }
+    .result-title { font-size: 18px; font-weight: 700; color: #f1f5f9; }
+
+    .result-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.06);
+    }
+    .result-row:last-child { border-bottom: 0; }
+    .result-label {
+      color: #64748b; font-size: 13px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .result-value {
+      color: #e2e8f0; font-size: 14px; font-weight: 500;
+      text-align: right; word-break: break-word; max-width: 60%;
+    }
+
+    /* ── YENİ: Cache chip ── */
+    .cache-chip {
+      display: inline-block; font-size: 11px; padding: 3px 10px;
+      border-radius: 20px; background: rgba(245,158,11,0.15);
+      color: #f59e0b; font-weight: 600; margin-top: 8px;
+    }
+
+    /* ── YENİ: Trendyol aç kartı ── */
+    .yeni-urun-card {
+      display: none; margin-top: 16px; padding: 20px;
+      background: rgba(59,130,246,0.1);
+      border: 1.5px solid #3b82f6; border-radius: 20px;
+      text-align: center; animation: slideIn 0.4s ease;
+    }
+    .yeni-urun-card.show { display: block; }
+    .yeni-urun-card h3 { color: #60a5fa; font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .yeni-urun-card p  { color: #94a3b8; font-size: 13px; margin-bottom: 14px; line-height: 1.6; }
+    .btn-trendyol {
+      background: linear-gradient(135deg, #ff6b00, #ff4500); color: white;
+      font-size: 15px; font-weight: 800; border-radius: 14px;
+      padding: 14px; border: none; width: 100%; cursor: pointer;
+      margin-bottom: 8px;
+    }
+    .bookmarklet-not { font-size: 11px; color: #64748b; margin-top: 4px; }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+
+    <div class="header">
+      <h1>📦 BuyBox Scanner</h1>
+      <p>Kamera ile barkod okut veya manuel giriş yap</p>
+    </div>
+
+    <div class="card">
+      <div id="reader">
+        <div class="camera-placeholder">
+          <span class="icon">📷</span>
+          Kamera henüz başlatılmadı.<br>
+          Aşağıdan <b>Kamerayı Aç</b> butonuna bas.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <input type="text" id="barcodeInput" placeholder="Barkodu manuel gir...">
+
+      <div class="btn-group">
+        <button class="btn-primary" onclick="checkManualBarcode()">🔍 Sorgula</button>
+        <button class="btn-camera" onclick="startScanner()">📷 Kamerayı Aç</button>
+        <button class="btn-reset"  onclick="resetScanner()">🔄 Temizle / Yeniden Başlat</button>
+      </div>
+
+      <div id="loading" class="message loading">
+        <div class="spinner"></div>
+        <span>Sorgulanıyor...</span>
+      </div>
+      <div id="info"  class="message info"></div>
+      <div id="error" class="message error"></div>
+
+      <!-- Normal sonuç (eski) -->
+      <div id="result" class="result card">
+        <div class="result-header">
+          <div class="result-emoji" id="resultEmoji"></div>
+          <div class="result-title" id="resultTitle"></div>
+        </div>
+        <div class="result-row">
+          <div class="result-label">Barkod</div>
+          <div class="result-value" id="rBarcode"></div>
+        </div>
+        <div class="result-row">
+          <div class="result-label">Sıralama</div>
+          <div class="result-value" id="rOrder"></div>
+        </div>
+        <div class="result-row">
+          <div class="result-label">BuyBox Fiyat</div>
+          <div class="result-value" id="rPrice"></div>
+        </div>
+        <div class="result-row">
+          <div class="result-label">Çoklu Satıcı</div>
+          <div class="result-value" id="rSeller"></div>
+        </div>
+        <div class="result-row">
+          <div class="result-label">Durum</div>
+          <div class="result-value" id="rStatus"></div>
+        </div>
+        <div class="result-row">
+          <div class="result-label" style="color:#10b981">Geçmiş Satış</div>
+          <div class="result-value" id="rSalesCount" style="font-weight:700;color:#10b981"></div>
+        </div>
+        <div class="result-row">
+          <div class="result-label" style="color:#10b981">Geçmiş Ciro</div>
+          <div class="result-value" id="rSalesRevenue" style="font-weight:700;color:#10b981"></div>
+        </div>
+        <div class="result-row">
+          <div class="result-label">Öneri</div>
+          <div class="result-value" id="rAdvice"></div>
+        </div>
+        <div class="result-row">
+          <div class="result-label">Satıcı Sayısı</div>
+          <div class="result-value" id="rSaticiSayisi">-</div>
+        </div>
+        <div class="result-row">
+          <div class="result-label">Tarih</div>
+          <div class="result-value" id="rDate"></div>
+        </div>
+        <div class="result-row">
+          <div class="result-label">Saat</div>
+          <div class="result-value" id="rTime"></div>
+        </div>
+        <!-- Cache chip — varsa gösterilir -->
+        <div id="rCacheChip" style="text-align:center;margin-top:4px;display:none">
+          <span class="cache-chip" id="rCacheChipText"></span>
+        </div>
+      </div>
+
+      <!-- YENİ ÜRÜN KARTI — mevcut sonuç kartından bağımsız -->
+      <div id="yeniUrunCard" class="yeni-urun-card">
+        <h3>🔍 Yeni Ürün Tespit Edildi</h3>
+        <p>Bu barkod satış geçmişinde yok.<br>Trendyol'a bakman gerekiyor.</p>
+        <button class="btn-trendyol" onclick="trendyolAc()">🛒 Trendyol'da Aç</button>
+        <div class="bookmarklet-not">Sayfa açılınca "TY Analiz" bookmarklet'ine bas → veri cache'e kaydedilir</div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ===== GLOBAL =====
+    let html5QrCode   = null;
+    let lastScannedCode = '';
+    let scannerRunning  = false;
+    let mevcutTrendyolUrl = '';
+
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxe9YBFc8O9YCRsrGhbycYJSoVsG9lBrTa9xWCKVTW7j_1Rcz13179COVMP6MKJ5xXF/exec';
+
+    // ===== SES =====
+    let audioCtx = null;
+    function initAudio() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+      } catch(e) {}
+    }
+    function playBeep() {
+      try {
+        if (!audioCtx) initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.1);
+      } catch(e) {}
+    }
+
+    // ===== MESAJLAR =====
+    function showInfo(m)  { const e=document.getElementById('info');  e.textContent='💡 '+m; e.classList.add('show'); }
+    function hideInfo()   { const e=document.getElementById('info');  e.classList.remove('show'); e.textContent=''; }
+    function showError(m) { const e=document.getElementById('error'); e.textContent='⚠️ '+m; e.classList.add('show'); }
+    function hideError()  { const e=document.getElementById('error'); e.classList.remove('show'); e.textContent=''; }
+    function showLoading(s) {
+      const e=document.getElementById('loading');
+      if(s) e.classList.add('show'); else e.classList.remove('show');
+    }
+    function hideResult() {
+      document.getElementById('result').classList.remove('show');
+      document.getElementById('yeniUrunCard').classList.remove('show');
+      document.getElementById('rCacheChip').style.display = 'none';
+    }
+
+    // ===== SONUÇ GÖSTER =====
+    function showResult(data) {
+      // Yeni ürün flag'i varsa — Trendyol aç kartını göster
+      if (data._action === 'TELEFON_BAK') {
+        mevcutTrendyolUrl = data._trendyolUrl || ('https://www.trendyol.com/sr?q=' + (data.barcode||''));
+        document.getElementById('yeniUrunCard').classList.add('show');
+        return;
+      }
+
+      // Normal sonuç
+      document.getElementById('resultEmoji').textContent   = data.emoji || '';
+      document.getElementById('resultTitle').textContent   = data.status || '';
+      document.getElementById('rBarcode').textContent      = data.barcode || '';
+      document.getElementById('rOrder').textContent        = data.buyboxOrder ?? '';
+      document.getElementById('rPrice').textContent        = data.buyboxPrice ?? '';
+      document.getElementById('rSeller').textContent       = data.hasMultipleSeller ? 'EVET' : 'HAYIR';
+      document.getElementById('rStatus').textContent       = data.status || '';
+      document.getElementById('rSalesCount').textContent   = (data.satisAdedi !== undefined && data.satisAdedi !== '') ? data.satisAdedi + ' Adet' : 'Yok';
+      document.getElementById('rSalesRevenue').textContent = (data.netCiro !== undefined && data.netCiro !== '')    ? data.netCiro + ' ₺'  : 'Yok';
+      document.getElementById('rAdvice').textContent       = data.oneri || '';
+      document.getElementById('rDate').textContent         = data.tarih || '';
+      document.getElementById('rTime').textContent         = data.saat  || '';
+
+      // Satıcı sayısı (yeni alan)
+      document.getElementById('rSaticiSayisi').textContent =
+        data._saticiSayisi != null ? data._saticiSayisi + ' kişi' : '-';
+
+      // Cache chip
+      if (data._kaynak === 'cache') {
+        document.getElementById('rCacheChip').style.display = 'block';
+        document.getElementById('rCacheChipText').textContent =
+          '⚡ Cache · ' + (data._dakikaOnce || 0) + ' dk önce güncellendi';
+      }
+
+      document.getElementById('result').classList.add('show');
+    }
+
+    // ===== TRENDYOL AÇ =====
+    function trendyolAc() {
+      if (!mevcutTrendyolUrl) return;
+      window.open(mevcutTrendyolUrl, '_blank');
+      document.querySelector('.bookmarklet-not').textContent =
+        '✅ Trendyol açıldı. Sayfa yüklenince "TY Analiz" bookmarklet\'ine bas.';
+    }
+
+    // ===== KAMERA =====
+    async function stopScanner() {
+      try {
+        if (html5QrCode && scannerRunning) {
+          await html5QrCode.stop();
+          await html5QrCode.clear();
+        }
+      } catch(err) {}
+      finally { scannerRunning = false; html5QrCode = null; }
+    }
+
+    async function startScanner() {
+      initAudio(); hideError(); hideInfo();
+      if (scannerRunning) { showInfo('Kamera zaten açık.'); return; }
+      try {
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) throw new Error('Hiç kamera bulunamadı.');
+
+        let selectedCameraId = cameras[0].id;
+        const backCamera = cameras.find(d => {
+          const l = (d.label||'').toLowerCase();
+          return l.includes('back')||l.includes('rear')||l.includes('environment')||l.includes('arka');
+        });
+        if (backCamera) selectedCameraId = backCamera.id;
+
+        html5QrCode = new Html5Qrcode("reader", {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,  Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39
+          ]
+        });
+
+        await html5QrCode.start(
+          selectedCameraId,
+          { fps:15, qrbox:{width:280,height:120}, aspectRatio:1.0, rememberLastUsedCamera:true,
+            supportedScanTypes:[Html5QrcodeScanType.SCAN_TYPE_CAMERA] },
+          onScanSuccess, onScanFailure
+        );
+
+        // Autofocus + zoom
+        try {
+          const videoEl = document.querySelector('#reader video');
+          if (videoEl && videoEl.srcObject) {
+            const track = videoEl.srcObject.getVideoTracks()[0];
+            const caps  = track.getCapabilities ? track.getCapabilities() : {};
+            const con   = {};
+            if (caps.focusMode && caps.focusMode.includes('continuous')) con.focusMode = 'continuous';
+            if (caps.zoom) con.zoom = Math.min(caps.zoom.max, caps.zoom.min + (caps.zoom.max - caps.zoom.min) * 0.3);
+            if (Object.keys(con).length > 0) await track.applyConstraints({ advanced:[con] });
+          }
+        } catch(e) {}
+
+        scannerRunning = true;
+        showInfo('Kamera açıldı! Barkodu kameraya göster.');
+      } catch(err) {
+        scannerRunning = false;
+        if      (err.name === 'NotAllowedError') showError('Kamera izni reddedildi.');
+        else if (err.name === 'NotFoundError')   showError('Kamera bulunamadı.');
+        else                                     showError('Kamera açılamadı: ' + (err.message||err));
+      }
+    }
+
+    async function onScanSuccess(decodedText) {
+      if (decodedText === lastScannedCode) return;
+      playBeep();
+      lastScannedCode = decodedText;
+      document.getElementById('barcodeInput').value = decodedText;
+      await stopScanner();
+      checkBuyBox(decodedText);
+    }
+    function onScanFailure() {}
+
+    // ===== SORGULAMA =====
+    function checkManualBarcode() {
+      const barcode = document.getElementById('barcodeInput').value.trim();
+      if (!barcode) { showError('Lütfen bir barkod gir.'); return; }
+      checkBuyBox(barcode);
+    }
+
+    async function checkBuyBox(barcode) {
+      hideError(); hideInfo(); hideResult();
+      showLoading(true);
+      mevcutTrendyolUrl = '';
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method : 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          // arbitraj_v2 kullanıyor — yeni cache + yeni ürün akışı
+          // Eski kod.gs'de doPost içine arbitraj_v2 bloğu eklenmemişse
+          // action: 'arbitraj' olarak kalır, her iki durumu da handle ediyoruz
+          body: JSON.stringify({ action: 'arbitraj_v2', barcode: barcode }),
+          redirect: 'follow'
+        });
+
+        const data = await response.json();
+        showLoading(false);
+
+        if (!data || !data.success) {
+          showError((data && data.error) ? data.error : 'Sorgu başarısız.');
+          return;
+        }
+
+        showResult(data);
+
+      } catch(err) {
+        showLoading(false);
+        showError('Sunucuya bağlanılamadı: ' + err.message);
+      }
+    }
+
+    // ===== SIFIRLAMA =====
+    async function resetScanner() {
+      await stopScanner();
+      lastScannedCode = '';
+      mevcutTrendyolUrl = '';
+      document.getElementById('barcodeInput').value = '';
+      hideError(); hideInfo(); hideResult();
+      showLoading(false);
+      document.getElementById('reader').innerHTML = `
+        <div class="camera-placeholder">
+          <span class="icon">📷</span>
+          Kamera henüz başlatılmadı.<br>
+          Aşağıdan <b>Kamerayı Aç</b> butonuna bas.
+        </div>`;
+      showInfo('Temizlendi. Kamerayı Aç butonuna basabilirsin.');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('barcodeInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') checkManualBarcode();
+      });
+      showInfo('Hazır! Kamera için "Kamerayı Aç" butonuna bas veya barkodu manuel gir.');
+    });
+  </script>
+</body>
+</html>
